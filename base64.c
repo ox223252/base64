@@ -16,33 +16,6 @@
 
 static const char b64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 
-static int getWtriteFileFd ( char * name )
-{
-	int rd;
-	if ( !access( name, F_OK ) )
-	{
-		printf ( "file exist, delete (y/n)?\n\n" );
-		do
-		{
-			#ifndef _WIN32
-			printf ( "\e[A\e[2K" );
-			#endif
-			rd = getchar ( );
-			while ( getchar ( ) != '\n' );
-
-			if ( rd == 'n' || rd == 'N' )
-			{
-				return ( -__LINE__ );
-			}
-		}
-		while ( ( rd != 'y' ) && ( rd != 'Y' ) );
-
-		remove ( name );
-	}
-
-	return ( open ( name, O_WRONLY | O_TRUNC | O_CREAT | O_BINARY, S_IWUSR | S_IWGRP | S_IWOTH | S_IRGRP | S_IROTH | S_IRUSR ) );
-}
-
 static int min ( int a, int b )
 {
 	return ( a > b )? b : a ;
@@ -200,13 +173,13 @@ static int encodeBase64_F2F ( char * const in, char * const out )
 		}
 		while ( access( tmpName, F_OK ) != -1 );
 
-		fOut = open ( tmpName, O_WRONLY | O_TRUNC | O_CREAT | O_BINARY, S_IWUSR | S_IWGRP | S_IWOTH | S_IRGRP | S_IROTH | S_IRUSR  );
+		fOut = open ( tmpName, O_RDWR | O_CREAT | O_BINARY, 0666  );
 	
 		getchar ( );
 	}
 	else
 	{
-		fOut = getWtriteFileFd ( out );
+		fOut = open ( out, O_RDWR | O_CREAT | O_BINARY, 0666  );
 	}
 
 	if ( fOut <= 0 )
@@ -215,6 +188,7 @@ static int encodeBase64_F2F ( char * const in, char * const out )
 		goto errorFOut;
 	}
 
+	lseek ( fOut, 0, SEEK_END );
 	while ( ( rd = read ( fIn, bIn, 3 ) ) )
 	{
 		encode_b64 ( bIn, bOut, rd );
@@ -274,11 +248,11 @@ static int decodeBase64_F2F ( char * const in, char * const out )
 		}
 		while ( access( tmpName, F_OK ) != -1 );
 
-		fOut = open ( tmpName, O_WRONLY | O_TRUNC | O_CREAT | O_BINARY, S_IWUSR | S_IWGRP | S_IWOTH | S_IRGRP | S_IROTH | S_IRUSR  );
+		fOut = open ( tmpName, O_RDWR |  O_CREAT | O_BINARY, 0666  );
 	}
 	else
 	{
-		fOut = getWtriteFileFd ( out );
+		fOut = open ( out, O_RDWR |  O_CREAT | O_BINARY, 0666  );
 	}
 
 	if ( fOut <= 0 )
@@ -287,6 +261,7 @@ static int decodeBase64_F2F ( char * const in, char * const out )
 		goto errorFOut;
 	}
 
+	lseek ( fOut, 0, SEEK_END );
 	while ( read ( fIn, bIn, 4 ) == 4 )
 	{
 		rd = decode_b64 ( bIn, bOut );
@@ -332,7 +307,7 @@ static int encodeBase64_S2F ( uint8_t * const in, uint8_t * const out, uint32_t 
 		return ( __LINE__ );
 	}
 		
-	int fOut = getWtriteFileFd ( out );
+	int fOut = open ( out, O_RDWR |  O_CREAT | O_BINARY, 0666  );
 	
 	if ( fOut <= 0 )
 	{
@@ -340,6 +315,7 @@ static int encodeBase64_S2F ( uint8_t * const in, uint8_t * const out, uint32_t 
 	}
 
 	i = 0;
+	lseek ( fOut, 0, SEEK_END );
 	while ( i < *size )
 	{
 		encode_b64 ( &in[ i ], buf, min ( *size - i, 4 ) );
@@ -368,7 +344,7 @@ static int decodeBase64_S2F ( uint8_t * const in, uint8_t * const out, uint32_t 
 		return ( __LINE__ );
 	}
 
-	int fOut = getWtriteFileFd ( out );
+	int fOut = open ( out, O_RDWR |  O_CREAT | O_BINARY, 0666  );
 	
 	if ( fOut <= 0 )
 	{
@@ -376,6 +352,7 @@ static int decodeBase64_S2F ( uint8_t * const in, uint8_t * const out, uint32_t 
 	}
 
 	i = 0;
+	lseek ( fOut, 0, SEEK_END );
 	while ( i < *size )
 	{
 		rd = decode_b64 ( &in[ i ], bOut );
