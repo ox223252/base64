@@ -1,12 +1,29 @@
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
+////////////////////////////////////////////////////////////////////////////////
+/// \copiright ox223252, 2018
+///
+/// This program is free software: you can redistribute it and/or modify it
+///     under the terms of the GNU General Public License published by the Free
+///     Software Foundation, either version 2 of the License, or (at your
+///     option) any later version.
+///
+/// This program is distributed in the hope that it will be useful, but WITHOUT
+///     ANY WARRANTY; without even the implied of MERCHANTABILITY or FITNESS FOR
+///     A PARTICULAR PURPOSE. See the GNU General Public License for more
+///     details.
+///
+/// You should have received a copy of the GNU General Public License along with
+///     this program. If not, see <http://www.gnu.org/licenses/>
+////////////////////////////////////////////////////////////////////////////////
+
 #include <errno.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "base64.h"
 
@@ -76,6 +93,7 @@ static int encodeBase64_S2S ( uint8_t * const in, uint8_t ** const out, uint32_t
 		!size ||
 		( *size == 0 ) )
 	{
+		errno = EINVAL;
 		return ( __LINE__ );
 	}
 
@@ -114,6 +132,7 @@ static int decodeBase64_S2S ( uint8_t * const in, uint8_t ** const out, uint32_t
 		( *size == 0 ) ||
 		( ( *size % 4 ) != 0 ) )
 	{
+		errno = EINVAL;
 		return ( __LINE__ );
 	}
 
@@ -292,18 +311,17 @@ errorFIn:
 }
 
 
-static int encodeBase64_S2F ( uint8_t * const in, uint8_t * const out, uint32_t * const size )
+static int encodeBase64_S2F ( uint8_t * const in, char * const out, uint32_t * const size )
 {
 	uint32_t i;
-	int rd = 0;
 	uint8_t buf[ 4 ];
-
 
 	if ( !in ||
 		!out ||
 		!size ||
 		( *size == 0 ) )
 	{
+		errno = EINVAL;
 		return ( __LINE__ );
 	}
 		
@@ -329,18 +347,17 @@ static int encodeBase64_S2F ( uint8_t * const in, uint8_t * const out, uint32_t 
 	return ( 0 );
 }
 
-static int decodeBase64_S2F ( uint8_t * const in, uint8_t * const out, uint32_t * const size )
+static int decodeBase64_S2F ( uint8_t * const in, char * const out, uint32_t * const size )
 {
 	uint32_t i, rd;
 	uint8_t bOut[ 4 ];
-
-
 
 	if ( !in ||
 		!out ||
 		!size ||
 		( *size == 0 ) )
 	{
+		errno = EINVAL;
 		return ( __LINE__ );
 	}
 
@@ -366,7 +383,7 @@ static int decodeBase64_S2F ( uint8_t * const in, uint8_t * const out, uint32_t 
 	return ( 0 );
 }
 
-static int encodeBase64_F2S ( uint8_t * const in, uint8_t ** const out, uint32_t * const size )
+static int encodeBase64_F2S ( char * const in, uint8_t ** const out, uint32_t * const size )
 {
 	uint32_t newSize;
 	int rd;
@@ -376,10 +393,11 @@ static int encodeBase64_F2S ( uint8_t * const in, uint8_t ** const out, uint32_t
 		!out ||
 		!size )
 	{
+		errno = EINVAL;
 		return ( __LINE__ );
 	}
 
-	int fIn = open ( ( char * )in, O_RDONLY | O_BINARY );
+	int fIn = open ( in, O_RDONLY | O_BINARY );
 	if ( fIn <= 0 )
 	{
 		return ( __LINE__ );
@@ -400,7 +418,7 @@ static int encodeBase64_F2S ( uint8_t * const in, uint8_t ** const out, uint32_t
 
 	newSize = 0;
 	(*out)[ newSize ] = '\0';
-	while ( rd = read ( fIn, bIn, 3 ) )
+	while ( rd = read ( fIn, bIn, 3 ), rd )
 	{
 		encode_b64 ( bIn, &(*out)[ newSize ], rd );
 		newSize += 4;
@@ -413,7 +431,7 @@ static int encodeBase64_F2S ( uint8_t * const in, uint8_t ** const out, uint32_t
 	return ( 0 );
 }
 
-static int decodeBase64_F2S ( uint8_t * const in, uint8_t ** const out, uint32_t * const size )
+static int decodeBase64_F2S ( char * const in, uint8_t ** const out, uint32_t * const size )
 {
 	uint32_t newSize;
 	uint32_t k;
@@ -423,10 +441,11 @@ static int decodeBase64_F2S ( uint8_t * const in, uint8_t ** const out, uint32_t
 		!out ||
 		!size )
 	{
+		errno = EINVAL;
 		return ( __LINE__ );
 	}
 
-	int fIn = open ( ( char * )in, O_RDONLY | O_BINARY );
+	int fIn = open ( in, O_RDONLY | O_BINARY );
 	if ( fIn <= 0 )
 	{
 		return ( __LINE__ );
@@ -462,25 +481,35 @@ static int decodeBase64_F2S ( uint8_t * const in, uint8_t ** const out, uint32_t
 	return ( 0 );
 }
 
-int encodeBase64 ( B64_MODE mode, uint8_t * const in, uint8_t ** const out, uint32_t * const size )
+int encodeBase64 ( B64_MODE mode, void * const in, void * const out, uint32_t * const size )
 {
 	switch ( mode )
 	{
 		case B64_F2F:
 		{
-			return ( encodeBase64_F2F ( in, *out ) );
+			if ( !out )
+			{
+				errno = EINVAL;
+				return ( __LINE__ );
+			}
+			return ( encodeBase64_F2F ( (char*)in, (char*)out ) );
 		}
 		case B64_S2S:
 		{
-			return ( encodeBase64_S2S ( in, out, size ) );
+			return ( encodeBase64_S2S ( (uint8_t*)in, (uint8_t**)out, size ) );
 		}
 		case B64_S2F:
 		{
-			return ( encodeBase64_S2F ( in, *out, size ) );
+			if ( !out )
+			{
+				errno = EINVAL;
+				return ( __LINE__ );
+			}
+			return ( encodeBase64_S2F ( (uint8_t*)in, (char*)out, size ) );
 		}
 		case B64_F2S:
 		{
-			return ( encodeBase64_F2S ( in, out, size ) );
+			return ( encodeBase64_F2S ( (char*)in, (uint8_t**)out, size ) );
 		}
 		default:
 		{
@@ -491,25 +520,35 @@ int encodeBase64 ( B64_MODE mode, uint8_t * const in, uint8_t ** const out, uint
 	return ( 0 );
 }
 
-int decodeBase64 ( B64_MODE mode, uint8_t * const in, uint8_t ** const out, uint32_t * const size )
+int decodeBase64 ( B64_MODE mode, void * const in, void * const out, uint32_t * const size )
 {
 	switch ( mode )
 	{
 		case B64_F2F:
 		{
-			return ( decodeBase64_F2F ( in, *out ) );
+			if ( !out )
+			{
+				errno = EINVAL;
+				return ( __LINE__ );
+			}
+			return ( decodeBase64_F2F ( (char*)in, (char*)out ) );
 		}
 		case B64_S2S:
 		{
-			return ( decodeBase64_S2S ( in, out, size ) );
+			return ( decodeBase64_S2S ( (uint8_t*)in, (uint8_t**)out, size ) );
 		}
 		case B64_S2F:
 		{
-			return ( decodeBase64_S2F ( in, *out, size ) );
+			if ( !out )
+			{
+				errno = EINVAL;
+				return ( __LINE__ );
+			}
+			return ( decodeBase64_S2F ( (uint8_t*)in, (char*)out, size ) );
 		}
 		case B64_F2S:
 		{
-			return ( decodeBase64_F2S ( in, out, size ) );
+			return ( decodeBase64_F2S ( (char*)in, (uint8_t**)out, size ) );
 		}
 		default:
 		{
